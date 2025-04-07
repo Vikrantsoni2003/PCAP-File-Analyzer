@@ -1,0 +1,2417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCAP Analyzer</title>
+  <!-- GSAP for animations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Libraries for export functionality -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- AOS Animation Library -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <style>
+    :root {
+      --bg-light: #f3f4f6;
+      --bg-dark: #111827;
+      --text-light: #111827;
+      --text-dark: #ffffff;
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --secondary: #6b7280;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --red-500: #ef4444;
+      --green-500: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      transition: background-color 0.3s, color 0.3s;
+      line-height: 1.5;
+    }
+
+    body.dark {
+      background-color: var(--bg-dark);
+      color: var(--text-dark);
+    }
+
+    body:not(.dark) {
+      background-color: var(--bg-light);
+      color: var(--text-light);
+    }
+
+    /* Navigation */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      position: fixed;
+      width: 100%;
+      top: 0;
+      z-index: 10;
+      transition: background-color 0.3s;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .dark nav {
+      background-color: var(--gray-800);
+    }
+
+    body:not(.dark) nav {
+      background-color: var(--gray-200);
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 1rem;
+    }
+
+    .btn-ghost {
+      background-color: transparent;
+      color: inherit;
+    }
+
+    .btn-ghost:hover {
+      background-color: rgba(107, 114, 128, 0.1);
+    }
+
+    .btn-default {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .btn-default:hover {
+      background-color: var(--primary-dark);
+    }
+
+    /* Hamburger Menu */
+    .hamburger-menu {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 30px;
+      height: 21px;
+      cursor: pointer;
+      margin-left: 1rem;
+    }
+
+    .hamburger-menu span {
+      display: block;
+      height: 3px;
+      width: 100%;
+      background-color: currentColor;
+      border-radius: 3px;
+      transition: all 0.3s ease;
+    }
+
+    /* Sidebar Menu */
+    .sidebar-menu {
+      position: fixed;
+      top: 0;
+      right: -300px;
+      width: 300px;
+      height: 100%;
+      background-color: var(--gray-800);
+      z-index: 20;
+      transition: right 0.3s ease;
+      padding: 1rem;
+      box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+      overflow-y: auto;
+    }
+
+    body:not(.dark) .sidebar-menu {
+      background-color: var(--gray-200);
+    }
+
+    .sidebar-menu.active {
+      right: 0;
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--gray-700);
+    }
+
+    body:not(.dark) .sidebar-header {
+      border-bottom-color: var(--gray-300);
+    }
+
+    .sidebar-close {
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .sidebar-menu-items {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .sidebar-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .sidebar-menu-item:hover {
+      background-color: var(--gray-700);
+    }
+
+    body:not(.dark) .sidebar-menu-item:hover {
+      background-color: var(--gray-300);
+    }
+
+    .sidebar-menu-item i {
+      font-size: 1.25rem;
+    }
+
+    .sidebar-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 15;
+      display: none;
+    }
+
+    .sidebar-overlay.active {
+      display: block;
+    }
+
+    /* Intro Section */
+    #intro {
+      padding-top: 6rem;
+      padding-bottom: 4rem;
+      text-align: center;
+      color: white;
+    }
+
+    .dark #intro {
+      background: linear-gradient(to right, #1d4ed8, #7e22ce);
+    }
+
+    body:not(.dark) #intro {
+      background: linear-gradient(to right, #fbbf24, #ea580c);
+    }
+
+    #intro h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+
+    #intro p {
+      font-size: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Sections */
+    section {
+      padding: 4rem 1rem;
+    }
+
+    section h2 {
+      font-size: 1.875rem;
+      font-weight: bold;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Cards */
+    .card {
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      margin: 1rem 0;
+      text-align: center;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .dark .card {
+      background-color: var(--gray-800);
+    }
+
+    body:not(.dark) .card {
+      background-color: white;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .icon {
+      font-size: 2rem;
+      color: var(--primary);
+      margin-bottom: 1rem;
+    }
+
+    /* Upload Section */
+    #upload .card {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .error {
+      color: var(--red-500);
+      margin-top: 0.5rem;
+    }
+
+    .success {
+      color: var(--green-500);
+      margin-top: 0.5rem;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .preview-link {
+      color: var(--primary);
+      text-decoration: underline;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 0.5rem;
+    }
+
+    /* Features Section */
+    #features {
+      position: re;
+    }
+
+    .feature-content {
+      max-width: 1000px;
+      margin: 0 auto;
+      transition: opacity 0.5s, transform 0.5s;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 2rem;
+      gap: 1rem;
+    }
+
+    .pagination-dot {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+      background-color: var(--gray-300);
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .pagination-dot.active {
+      background-color: var(--primary);
+    }
+
+    .dark .pagination-dot {
+      background-color: var(--gray-600);
+    }
+
+    .dark .pagination-dot.active {
+      background-color: var(--primary);
+    }
+
+    .pagination-arrow {
+      width: 2.5rem;
+      height: 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .dark .pagination-arrow {
+      background-color: var(--gray-700);
+    }
+
+    body:not(.dark) .pagination-arrow {
+      background-color: var(--gray-200);
+    }
+
+    .pagination-arrow:hover {
+      background-color: var(--gray-600);
+    }
+
+    /* About Us Section */
+    #about {
+      transition: background-color 0.3s;
+    }
+
+    .dark #about {
+      background-color: var(--gray-800);
+    }
+
+    body:not(.dark) #about {
+      background-color: var(--gray-100);
+    }
+
+    .about-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .mission {
+      margin-bottom: 3rem;
+    }
+
+    .mission h3, .team h3, .story h3 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .mission p, .story p {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .dark .mission p, .dark .story p {
+      color: var(--gray-300);
+    }
+
+    body:not(.dark) .mission p, body:not(.dark) .story p {
+      color: var(--gray-600);
+    }
+
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+
+    .team-member {
+      text-align: center;
+      transition: transform 0.3s;
+      padding: 1rem;
+      border-radius: 0.5rem;
+    }
+
+    .team-member:hover {
+      transform: translateY(-10px);
+    }
+
+    .dark .team-member:hover {
+      background-color: var(--gray-700);
+    }
+
+    body:not(.dark) .team-member:hover {
+      background-color: var(--gray-200);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .team-member img {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin: 0 auto 0.75rem;
+      border: 3px solid var(--primary);
+      transition: transform 0.3s;
+    }
+
+    .team-member:hover img {
+      transform: scale(1.1);
+    }
+
+    .team-member h4 {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      color: var(--primary);
+    }
+
+    .team-member p.role {
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+
+    .team-member p.bio {
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+
+    .dark .team-member p {
+      color: var(--gray-300);
+    }
+
+    body:not(.dark) .team-member p {
+      color: var(--gray-600);
+    }
+
+    .social-links {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .social-link {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--primary);
+      color: white;
+      transition: background-color 0.3s;
+    }
+
+    .social-link:hover {
+      background-color: var(--primary-dark);
+    }
+
+    /* Feedback Section */
+    #feedback {
+      padding-bottom: 6rem;
+    }
+
+    .feedback-form {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    .dark .form-group label {
+      color: var(--gray-200);
+    }
+
+    body:not(.dark) .form-group label {
+      color: var(--gray-700);
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      border: 1px solid;
+      font-family: inherit;
+      font-size: 1rem;
+    }
+
+    .dark .form-control {
+      background-color: var(--gray-700);
+      border-color: var(--gray-600);
+      color: white;
+    }
+
+    body:not(.dark) .form-control {
+      background-color: var(--gray-100);
+      border-color: var(--gray-300);
+      color: var(--gray-900);
+    }
+
+    textarea.form-control {
+      min-height: 150px;
+      resize: vertical;
+    }
+
+    /* Chatbot */
+    #chatbot {
+      position: fixed;
+      bottom: 5rem;
+      right: 1.25rem;
+      width: 20rem;
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #chatHeader {
+      background: var(--primary);
+      padding: 0.75rem;
+      font-weight: bold;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .chatbot-logo {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+      }
+    }
+
+    .chatbot-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #chatBody {
+      height: 16rem;
+      padding: 0.75rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      background-color: var(--gray-800);
+      color: white;
+    }
+
+    .chat-message {
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      max-width: 80%;
+      word-break: break-word;
+    }
+
+    .chat-message.user {
+      align-self: flex-end;
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .chat-message.bot {
+      align-self: flex-start;
+      background-color: var(--gray-700);
+      color: white;
+    }
+
+    .chat-input-container {
+      display: flex;
+      border-top: 1px solid var(--gray-700);
+    }
+
+    #chatInput {
+      flex: 1;
+      border: none;
+      padding: 0.75rem;
+      outline: none;
+      background-color: var(--gray-700);
+      color: white;
+    }
+
+    #chatSend {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 0 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    #chatSend:hover {
+      background-color: var(--primary-dark);
+    }
+
+    #chatToggle {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      width: 3.5rem;
+      height: 3.5rem;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s;
+    }
+
+    #chatToggle:hover {
+      transform: scale(1.1);
+    }
+
+    #chatToggle .chatbot-logo {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+
+    /* Analysis Result */
+    #analysisResult {
+      margin-top: 2rem;
+    }
+
+    #analysisResult table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    #analysisResult th,
+    #analysisResult td {
+      border: 1px solid var(--secondary);
+      padding: 0.5rem;
+      text-align: left;
+    }
+
+    #analysisResult th {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    #chartContainer {
+      margin-top: 2rem;
+      height: 300px;
+      margin-bottom: 3rem; /* Added more space below chart */
+    }
+
+    /* Export buttons */
+    .export-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 40px; /* Increased margin to avoid overlap with chart */
+      flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+    }
+
+    .export-btn {
+      padding: 8px 16px;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      margin-bottom: 10px; /* Add space between buttons when they wrap */
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .export-btn:hover {
+      background-color: var(--primary-dark);
+    }
+
+    /* Reports Section */
+    #reports {
+      padding-bottom: 6rem;
+    }
+
+    .reports-list {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .report-item {
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .dark .report-item {
+      background-color: var(--gray-800);
+    }
+
+    body:not(.dark) .report-item {
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .report-info {
+      flex: 1;
+    }
+
+    .report-type {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .report-date {
+      font-size: 0.875rem;
+      color: var(--gray-500);
+    }
+
+    .report-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      border: 3px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top: 3px solid var(--primary);
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Login Modal */
+    .login-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+    }
+
+    .login-modal.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .login-container {
+      background-color: var(--gray-800);
+      border-radius: 0.5rem;
+      padding: 2rem;
+      width: 90%;
+      max-width: 400px;
+      position: relative;
+    }
+
+    body:not(.dark) .login-container {
+      background-color: white;
+    }
+
+    .login-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .login-tabs {
+      display: flex;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--gray-700);
+    }
+
+    body:not(.dark) .login-tabs {
+      border-bottom-color: var(--gray-300);
+    }
+
+    .login-tab {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: border-color 0.3s;
+    }
+
+    .login-tab.active {
+      border-bottom-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .login-form {
+      display: none;
+    }
+
+    .login-form.active {
+      display: block;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .nav-buttons {
+        display: none;
+      }
+
+      .team-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .export-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .export-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body class="dark">
+  <nav id="navbar">
+    <h1>PCAP Analyzer</h1>
+    <div class="nav-buttons">
+      <button class="btn btn-ghost nav-button" onclick="scrollToSection('intro')">
+        Home
+      </button>
+      <button class="btn btn-ghost nav-button" onclick="scrollToSection('features')">
+        Features
+      </button>
+      <button class="btn btn-ghost nav-button" onclick="scrollToSection('about')">
+        About Us
+      </button>
+      <button class="btn btn-default nav-button" onclick="scrollToSection('upload')">
+        Get Started
+      </button>
+      <button class="btn btn-ghost nav-button" id="darkModeToggle">
+        <i data-lucide="sun"></i>
+      </button>
+      <!-- Hamburger Menu Button -->
+      <div class="hamburger-menu" id="hamburgerMenu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Sidebar Menu -->
+  <div class="sidebar-menu" id="sidebarMenu">
+    <div class="sidebar-header">
+      <h2>Menu</h2>
+      <div class="sidebar-close" id="sidebarClose">&times;</div>
+    </div>
+    <div class="sidebar-menu-items">
+      <div class="sidebar-menu-item" id="loginBtn">
+        <i data-lucide="log-in"></i>
+        <span>Login</span>
+      </div>
+      <div class="sidebar-menu-item" id="signupBtn">
+        <i data-lucide="user-plus"></i>
+        <span>Sign Up</span>
+      </div>
+      <div class="sidebar-menu-item" id="myReportsBtn">
+        <i data-lucide="file-text"></i>
+        <span>My Reports</span>
+      </div>
+      <div class="sidebar-menu-item" onclick="scrollToSection('about')">
+        <i data-lucide="info"></i>
+        <span>About Us</span>
+      </div>
+      <div class="sidebar-menu-item" onclick="scrollToSection('feedback')">
+        <i data-lucide="message-square"></i>
+        <span>Feedback</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar Overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Login Modal -->
+  <div class="login-modal" id="loginModal">
+    <div class="login-container">
+      <div class="login-close" id="loginClose">&times;</div>
+      <div class="login-tabs">
+        <div class="login-tab active" data-tab="login">Login</div>
+        <div class="login-tab" data-tab="signup">Sign Up</div>
+      </div>
+      <div class="login-form active" id="loginForm">
+        <div class="form-group">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" class="form-control" placeholder="Your email" required>
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" class="form-control" placeholder="Your password" required>
+        </div>
+        <button class="  class="form-control" placeholder="Your password" required>
+        </div>
+        <button class="btn btn-default" id="loginSubmit">Login</button>
+      </div>
+      <div class="login-form" id="signupForm">
+        <div class="form-group">
+          <label for="signupName">Name</label>
+          <input type="text" id="signupName" class="form-control" placeholder="Your name" required>
+        </div>
+        <div class="form-group">
+          <label for="signupEmail">Email</label>
+          <input type="email" id="signupEmail" class="form-control" placeholder="Your email" required>
+        </div>
+        <div class="form-group">
+          <label for="signupPassword">Password</label>
+          <input type="password" id="signupPassword" class="form-control" placeholder="Your password" required>
+        </div>
+        <div class="form-group">
+          <label for="signupConfirmPassword">Confirm Password</label>
+          <input type="password" id="signupConfirmPassword" class="form-control" placeholder="Confirm password" required>
+        </div>
+        <button class="btn btn-default" id="signupSubmit">Sign Up</button>
+      </div>
+    </div>
+  </div>
+
+  <section id="intro">
+    <div class="container">
+      <h1>Advanced PCAP Analyzer</h1>
+      <p>Analyze network traffic with AI and Machine Learning</p>
+      <button class="btn btn-default" onclick="scrollToSection('upload')">Get Started</button>
+    </div>
+  </section>
+
+  <section id="upload">
+    <div class="container">
+      <h2>Upload and Analyze PCAP Files</h2>
+      <div class="card" data-aos="fade-up">
+        <i data-lucide="upload" class="icon"></i>
+        <p>Drag & Drop your PCAP file or use the button below to upload.</p>
+        <form id="uploadForm" enctype="multipart/form-data">
+          <input type="file" id="fileInput" name="pcapFile" accept=".pcap" />
+          <p id="error" class="error hidden"></p>
+          <p id="success" class="success hidden"></p>
+          <div id="fileInfo" class="hidden">
+            <p>Selected File: <span id="fileName"></span></p>
+            <a id="filePreview" href="#" target="_blank" rel="noopener noreferrer" class="preview-link">
+              <i data-lucide="eye"></i> Preview File
+            </a>
+          </div>
+          <button type="submit" id="analyzeBtn" class="btn btn-default">Analyze</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section id="analysisResult" class="hidden">
+    <div class="container">
+      <div class="card" data-aos="fade-up">
+        <i data-lucide="activity" class="icon"></i>
+        <h2>Real-Time Analysis Result</h2>
+        <p id="resultText"></p>
+        <div id="packetTableContainer">
+          <h3>Packet Details</h3>
+          <table id="packetTable">
+            <thead>
+              <tr>
+                <th>Source IP</th>
+                <th>Destination IP</th>
+                <th>Protocol</th>
+                <th>Packet Size</th>
+              </tr>
+            </thead>
+            <tbody id="packetTableBody"></tbody>
+          </table>
+        </div>
+        <div id="chartContainer">
+          <h3>Protocol Distribution</h3>
+          <canvas id="protocolChart"></canvas>
+        </div>
+        <div class="export-buttons">
+          <button class="export-btn" onclick="exportToPDF()">
+            <i data-lucide="file-text"></i> Export to PDF
+          </button>
+          <button class="export-btn" onclick="exportToJSON()">
+            <i data-lucide="code"></i> Export to JSON
+          </button>
+          <button class="export-btn" onclick="exportToCSV()">
+            <i data-lucide="file"></i> Export to CSV
+          </button>
+          <button class="export-btn" onclick="saveReport()">
+            <i data-lucide="save"></i> Save Report
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="container">
+      <h2 data-aos="fade-up">Featuresd</h2>
+      
+      <div class="feature-content">
+        <!-- Feature pages will be dynamically inserted here -->
+      
+      </div>
+      
+      <div class="pagination">
+        <div class="pagination-arrow" id="prevFeature">
+          <i data-lucide="arrow-left"></i>
+        </div>
+        
+        <div id="paginationDots">
+          <!-- Pagination dots will be dynamically inserted here -->
+        </div>
+        
+        <div class="pagination-arrow" id="nextFeature">
+          <i data-lucide="arrow-right"></i>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <section id="about">
+    <div class="about-container">
+      <h2 class="about-title" data-aos="fade-up">About Us</h2>
+      
+      <div class="mission" data-aos="fade-up">
+        <h3>Our Mission</h3>
+        <p>
+          Our mission is to provide cutting-edge network analysis tools that empower security professionals 
+          to detect and respond to threats efficiently. We believe in making advanced security analysis 
+          accessible to everyone through intuitive interfaces and powerful AI capabilities.
+        </p>
+      </div>
+      
+      <div class="team" data-aos="fade-up">
+        <h3>Our Team</h3>
+        <div class="team-grid">
+          <!-- Team members will be dynamically inserted here -->
+           
+        </div>
+      </div>
+      
+      <div class="story" data-aos="fade-up">
+        <h3>Our Story</h3>
+        <p>
+          Founded in 2020, our company began with a simple idea: make network security analysis more 
+          accessible and powerful. What started as a small project between cybersecurity researchers 
+          has grown into a comprehensive platform used by security teams worldwide. Our journey has been 
+          driven by continuous innovation and a commitment to helping organizations protect their networks 
+          from evolving threats.
+        </p>
+      </div>
+    </div>
+  </section>
+  
+  <section id="feedback">
+    <div class="container">
+      <h2 data-aos="fade-up">Share Your Feedback</h2>
+      <form id="feedbackForm" class="feedback-form" data-aos="fade-up">
+        <div class="form-group">
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" class="form-control" placeholder="Your name" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" class="form-control" placeholder="Your email" required>
+        </div>
+        <div class="form-group">
+          <label for="message">Feedback</label>
+          <textarea id="message" name="message" class="form-control" placeholder="Share your experience with our tool..." required></textarea>
+        </div>
+        <p id="feedbackError" class="error hidden"></p>
+        <p id="feedbackSuccess" class="success hidden"></p>
+        <button type="submit" class="btn btn-default">Submit Feedback</button>
+      </form>
+    </div>
+  </section>
+  
+  <section id="reports">
+    <div class="container">
+      <h2 data-aos="fade-up">My Saved Reports</h2>
+      <div class="reports-list" data-aos="fade-up">
+        <div id="reportsLoading">
+          <div class="spinner"></div> Loading your reports...
+        </div>
+        <div id="noReports" class="hidden">
+          <p>You don't have any saved reports yet. Analyze a PCAP file and save the report to see it here.</p>
+        </div>
+        <div id="reportsList">
+          <!-- Reports will be dynamically inserted here -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Chatbot UI -->
+  <div id="chatbot">
+    <div id="chatHeader">
+      <div class="chatbot-logo">
+        <img src="image.png" alt="PCAP Bot">
+      </div>
+      <span>PCAP Bot</span>
+    </div>
+    <div id="chatBody">
+      <!-- Chat messages will be inserted here -->
+    </div>
+    <div class="chat-input-container">
+      <input type="text" id="chatInput" placeholder="Type a message..." />
+      <button id="chatSend"><i data-lucide="send"></i></button>
+    </div>
+  </div>
+
+  <!-- Chat Toggle Button -->
+  <button id="chatToggle">
+    <div class="chatbot-logo">
+      <img src="image.png" alt="PCAP Bot">
+    </div>
+  </button>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // API URL - Change this to your actual backend URL
+    const API_URL = '/api';
+    
+    // User ID - In a real app, this would come from authentication
+    const USER_ID = 'user_' + Math.random().toString(36).substring(2, 9);
+    
+    // Authentication state
+    let isLoggedIn = false;
+    let currentUser = null;
+    
+    document.addEventListener("DOMContentLoaded", () => {
+      // Initialize GSAP
+      gsap.registerPlugin(ScrollTrigger);
+      
+      // Initialize AOS
+      AOS.init({
+        duration: 800,
+        easing: 'ease-in-out',
+        once: true
+      });
+      
+      // Initialize Lucide icons
+      if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+      } else {
+        console.warn("Lucide icons not found. Make sure Lucide is properly imported.");
+      }
+      
+      // DOM Elements
+      const darkModeToggle = document.getElementById("darkModeToggle");
+      const body = document.body;
+      const fileInput = document.getElementById("fileInput");
+      const uploadForm = document.getElementById("uploadForm");
+      const error = document.getElementById("error");
+      const success = document.getElementById("success");
+      const fileInfo = document.getElementById("fileInfo");
+      const fileName = document.getElementById("fileName");
+      const filePreview = document.getElementById("filePreview");
+      const analysisResult = document.getElementById("analysisResult");
+      const resultText = document.getElementById("resultText");
+      const packetTableBody = document.getElementById("packetTableBody");
+      const featureContent = document.querySelector(".feature-content");
+      const paginationDots = document.getElementById("paginationDots");
+      const prevFeatureBtn = document.getElementById("prevFeature");
+      const nextFeatureBtn = document.getElementById("nextFeature");
+      const chatToggle = document.getElementById("chatToggle");
+      const chatbot = document.getElementById("chatbot");
+      const chatBody = document.getElementById("chatBody");
+      const chatInput = document.getElementById("chatInput");
+      const chatSend = document.getElementById("chatSend");
+      const feedbackForm = document.getElementById("feedbackForm");
+      const feedbackError = document.getElementById("feedbackError");
+      const feedbackSuccess = document.getElementById("feedbackSuccess");
+      const reportsList = document.getElementById("reportsList");
+      const reportsLoading = document.getElementById("reportsLoading");
+      const noReports = document.getElementById("noReports");
+      
+      // Hamburger Menu Elements
+      const hamburgerMenu = document.getElementById("hamburgerMenu");
+      const sidebarMenu = document.getElementById("sidebarMenu");
+      const sidebarClose = document.getElementById("sidebarClose");
+      const sidebarOverlay = document.getElementById("sidebarOverlay");
+      const loginBtn = document.getElementById("loginBtn");
+      const signupBtn = document.getElementById("signupBtn");
+      const myReportsBtn = document.getElementById("myReportsBtn");
+      
+      // Login Modal Elements
+      const loginModal = document.getElementById("loginModal");
+      const loginClose = document.getElementById("loginClose");
+      const loginTabs = document.querySelectorAll(".login-tab");
+      const loginForms = document.querySelectorAll(".login-form");
+      const loginSubmit = document.getElementById("loginSubmit");
+      const signupSubmit = document.getElementById("signupSubmit");
+      
+      // App State
+      let currentFeaturePage = 0;
+      let analysisData = null;
+      
+      // Feature pages content
+      const featurePages = [
+        {
+          title: "PCAP Upload & AI Analysis",
+          features: [
+            { icon: "upload", title: "PCAP File Upload", description: "Drag & Drop file upload and real-time packet processing." },
+            { icon: "brain", title: "AI-Based Analysis", description: "Detect anomalies, DNS spoofing, DDoS attacks, and more." }
+          ]
+        },
+        {
+          title: "Visualization & Reporting",
+          features: [
+            { icon: "bar-chart-3", title: "Data Visualization", description: "Interactive graphs and GeoIP mapping." },
+            { icon: "file-text", title: "Report Generation & Export", description: "Download reports in PDF, JSON, CSV formats." }
+          ]
+        },
+        {
+          title: "API & Integration",
+          features: [
+            { icon: "code", title: "API Integration", description: "Python/JavaScript API for automation." },
+            { icon: "message-circle", title: "Feedback", description: "Share your experience and help us improve.", 
+              action: { label: "Leave Feedback", onClick: "scrollToSection('feedback')" }}
+          ]
+        }
+      ];
+      
+      // Team members for About Us section
+      const teamMembers = [
+        { 
+          name: "Raman Singh", 
+          role: "Lead Developer & Founder", 
+          bio: "Expert in network security with 5+ years of experience in developing security tools and analyzing network traffic.",
+          avatar: "raman_2.png",
+          social: {
+            linkedin: "#",
+            github: "#",
+            twitter: "#"
+          }
+        },
+        { 
+          name: "Rakhi Lalwani", 
+          role: "Security Analyst", 
+          bio: "Specializes in threat detection and vulnerability assessment with a background in cybersecurity research.",
+          avatar: "fotor-2025040321384.jpg",
+          social: {
+            linkedin: "#",
+            github: "#"
+          }
+        },
+        { 
+          name: "Vikrant Soni", 
+          role: "UI/UX Designer", 
+          bio: "Creates intuitive user interfaces with a focus on accessibility and user experience.",
+          avatar: "mesii.jpg",
+          social: {
+            linkedin: "#",
+            dribbble: "#"
+          }
+        },
+        { 
+          name: "Subhanshu ", 
+          role: "Data Scientist", 
+          bio: "Specializes in machine learning algorithms for network traffic analysis and anomaly detection.",
+          avatar: "Subhanshu_2.jpg",
+          social: {
+            linkedin: "#",
+            github: "#"
+          }
+        }
+      ];
+      
+      // Initialize the app
+      function init() {
+        // Set up dark mode toggle
+        setupDarkModeToggle();
+        
+        // Set up file input handling
+        setupFileInput();
+        
+        // Set up features pagination
+        renderFeaturePage();
+        setupFeaturePagination();
+        
+        // Render team members
+        renderTeamMembers();
+        
+        // Set up chatbot
+        setupChatbot();
+        
+        // Set up animations
+        setupAnimations();
+        
+        // Set up feedback form
+        setupFeedbackForm();
+        
+        // Load user reports
+        loadUserReports();
+        
+        // Set up hamburger menu
+        setupHamburgerMenu();
+        
+        // Set up login modal
+        setupLoginModal();
+      }
+      
+      // Dark mode toggle
+      function setupDarkModeToggle() {
+        // Check for saved preference
+        if (localStorage.getItem('darkMode') === 'disabled') {
+          body.classList.remove('dark');
+          darkModeToggle.querySelector('i').setAttribute('data-lucide', 'moon');
+        }
+        
+        darkModeToggle.addEventListener("click", () => {
+          body.classList.toggle("dark");
+          const icon = darkModeToggle.querySelector("i");
+          if (body.classList.contains("dark")) {
+            icon.setAttribute("data-lucide", "sun");
+            localStorage.setItem('darkMode', 'enabled');
+          } else {
+            icon.setAttribute("data-lucide", "moon");
+            localStorage.setItem('darkMode', 'disabled');
+          }
+          if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+          }
+        });
+      }
+      
+      // Hamburger Menu
+      function setupHamburgerMenu() {
+        hamburgerMenu.addEventListener("click", () => {
+          sidebarMenu.classList.add("active");
+          sidebarOverlay.classList.add("active");
+        });
+        
+        sidebarClose.addEventListener("click", closeSidebar);
+        sidebarOverlay.addEventListener("click", closeSidebar);
+        
+        loginBtn.addEventListener("click", () => {
+          closeSidebar();
+          openLoginModal("login");
+        });
+        
+        signupBtn.addEventListener("click", () => {
+          closeSidebar();
+          openLoginModal("signup");
+        });
+        
+        myReportsBtn.addEventListener("click", () => {
+          closeSidebar();
+          if (isLoggedIn) {
+            scrollToSection('reports');
+          } else {
+            openLoginModal("login");
+          }
+        });
+      }
+      
+      function closeSidebar() {
+        sidebarMenu.classList.remove("active");
+        sidebarOverlay.classList.remove("active");
+      }
+      
+      // Login Modal
+      function setupLoginModal() {
+        loginTabs.forEach(tab => {
+          tab.addEventListener("click", () => {
+            const tabName = tab.getAttribute("data-tab");
+            
+            // Update active tab
+            loginTabs.forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            
+            // Show corresponding form
+            loginForms.forEach(form => form.classList.remove("active"));
+            document.getElementById(tabName + "Form").classList.add("active");
+          });
+        });
+        
+        loginClose.addEventListener("click", closeLoginModal);
+        
+        loginSubmit.addEventListener("click", (e) => {
+          e.preventDefault();
+          const email = document.getElementById("loginEmail").value;
+          const password = document.getElementById("loginPassword").value;
+          
+          if (!email || !password) {
+            alert("Please fill in all fields");
+            return;
+          }
+          
+          // Simulate login (in a real app, this would be an API call)
+          simulateLogin(email);
+        });
+        
+        signupSubmit.addEventListener("click", (e) => {
+          e.preventDefault();
+          const name = document.getElementById("signupName").value;
+          const email = document.getElementById("signupEmail").value;
+          const password = document.getElementById("signupPassword").value;
+          const confirmPassword = document.getElementById("signupConfirmPassword").value;
+          
+          if (!name || !email || !password || !confirmPassword) {
+            alert("Please fill in all fields");
+            return;
+          }
+          
+          if (password !== confirmPassword) {
+            alert("Passwords do not match");
+            return;
+          }
+          
+          // Simulate signup (in a real app, this would be an API call)
+          simulateSignup(name, email);
+        });
+      }
+      
+      function openLoginModal(tab = "login") {
+        loginModal.classList.add("active");
+        
+        // Set active tab
+        loginTabs.forEach(t => t.classList.remove("active"));
+        document.querySelector(`.login-tab[data-tab="${tab}"]`).classList.add("active");
+        
+        // Show corresponding form
+        loginForms.forEach(form => form.classList.remove("active"));
+        document.getElementById(tab + "Form").classList.add("active");
+      }
+      
+      function closeLoginModal() {
+        loginModal.classList.remove("active");
+      }
+      
+      function simulateLogin(email) {
+        // In a real app, this would verify credentials with your backend
+        setTimeout(() => {
+          isLoggedIn = true;
+          currentUser = {
+            id: USER_ID,
+            email: email,
+            name: email.split('@')[0]
+          };
+          
+          closeLoginModal();
+          updateUIForLoggedInUser();
+          
+          // Show success message
+          alert(`Welcome back, ${currentUser.name}!`);
+        }, 1000);
+      }
+      
+      function simulateSignup(name, email) {
+        // In a real app, this would create a new user in your backend
+        setTimeout(() => {
+          isLoggedIn = true;
+          currentUser = {
+            id: USER_ID,
+            email: email,
+            name: name
+          };
+          
+          closeLoginModal();
+          updateUIForLoggedInUser();
+          
+          // Show success message
+          alert(`Account created successfully! Welcome, ${name}!`);
+        }, 1000);
+      }
+      
+      function updateUIForLoggedInUser() {
+        // Update sidebar menu
+        loginBtn.innerHTML = `<i data-lucide="log-out"></i><span>Logout</span>`;
+        loginBtn.removeEventListener("click", () => {
+          closeSidebar();
+          openLoginModal("login");
+        });
+        loginBtn.addEventListener("click", () => {
+          isLoggedIn = false;
+          currentUser = null;
+          closeSidebar();
+          location.reload(); // Simple way to reset UI
+        });
+        
+        signupBtn.style.display = "none";
+        
+        // Refresh icons
+        if (typeof lucide !== "undefined") {
+          lucide.createIcons();
+        }
+      }
+      
+      // File input handling
+      function setupFileInput() {
+        fileInput.addEventListener("change", (event) => {
+          const file = event.target.files[0];
+          if (file) {
+            if (file.size > 10 * 1024 * 1024) {
+              error.textContent = "File size should be less than 10MB";
+              error.classList.remove("hidden");
+              success.classList.add("hidden");
+              fileInfo.classList.add("hidden");
+            } else if (!file.name.endsWith(".pcap")) {
+              error.textContent = "Only .pcap files are allowed";
+              error.classList.remove("hidden");
+              success.classList.add("hidden");
+              fileInfo.classList.add("hidden");
+            } else {
+              error.classList.add("hidden");
+              success.classList.add("hidden");
+              fileName.textContent = file.name;
+              filePreview.href = URL.createObjectURL(file);
+              fileInfo.classList.remove("hidden");
+            }
+          }
+        });
+
+        uploadForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          
+          // Check if user is logged in
+          if (!isLoggedIn) {
+            openLoginModal();
+            return;
+          }
+          
+          if (fileInput.files.length === 0) {
+            error.textContent = "Please select a file first";
+            error.classList.remove("hidden");
+            return;
+          }
+
+          const analyzeBtn = document.getElementById("analyzeBtn");
+          analyzeBtn.innerHTML = '<div class="spinner"></div> Analyzing...';
+          analyzeBtn.disabled = true;
+          error.classList.add("hidden");
+          success.classList.add("hidden");
+
+          try {
+            const formData = new FormData(uploadForm);
+            
+            // Send to our backend API
+            const response = await fetch(`${API_URL}/upload`, {
+              method: 'POST',
+              body: formData
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            displayResults(data);
+            createChart(data.packetDetails);
+            analysisResult.classList.remove("hidden");
+            success.textContent = "File analyzed successfully!";
+            success.classList.remove("hidden");
+            
+            // Add to chatbot
+            appendMessage('bot', '📊 Analysis complete! Type "report" to see a summary.');
+            
+          } catch (err) {
+            console.error('Error:', err);
+            error.textContent = err.message || "An error occurred during analysis.";
+            error.classList.remove("hidden");
+          } finally {
+            analyzeBtn.textContent = "Analyze";
+            analyzeBtn.disabled = false;
+          }
+        });
+      }
+      
+      // Display analysis results
+      function displayResults(data) {
+        analysisData = data;
+        resultText.textContent = `Total Packets: ${data.totalPackets}`;
+
+        packetTableBody.innerHTML = "";
+        data.packetDetails.forEach((packet) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${packet.srcIP}</td>
+            <td>${packet.dstIP}</td>
+            <td>${packet.protocol}</td>
+            <td>${packet.packetSize}</td>
+          `;
+          packetTableBody.appendChild(row);
+        });
+
+        if (data.threats && data.threats.length > 0) {
+          resultText.textContent += "\n\nThreats Detected:";
+          data.threats.forEach((threat) => {
+            resultText.textContent += `\n- ${threat.type}: ${threat.description}`;
+          });
+        } else {
+          resultText.textContent += "\n\nNo threats detected.";
+        }
+
+        // Add protocol counts to analysisData
+        analysisData.protocolCounts = {};
+        data.packetDetails.forEach((packet) => {
+          analysisData.protocolCounts[packet.protocol] =
+            (analysisData.protocolCounts[packet.protocol] || 0) + 1;
+        });
+      }
+      
+      // Create chart for protocol distribution
+      function createChart(packetDetails) {
+        const protocolCounts = {};
+        packetDetails.forEach((packet) => {
+          protocolCounts[packet.protocol] =
+            (protocolCounts[packet.protocol] || 0) + 1;
+        });
+
+        const labels = Object.keys(protocolCounts);
+        const data = Object.values(protocolCounts);
+
+        const ctx = document.getElementById("protocolChart").getContext("2d");
+
+        new Chart(ctx, {
+          type: "pie",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                data: data,
+                backgroundColor: [
+                  "#FF6384",
+                  "#36A2EB",
+                  "#FFCE56",
+                  "#4BC0C0",
+                  "#9966FF",
+                  "#FF9F40",
+                ],
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            title: {
+              display: true,
+              text: "Protocol Distribution",
+            },
+          },
+        });
+      }
+      
+      // Feature pagination
+      function renderFeaturePage() {
+        const page = featurePages[currentFeaturePage];
+        
+        // Create feature page content
+        let featuresHTML = `
+          <h3 class="text-xl font-semibold mb-6 text-center">${page.title}</h3>
+          <div class="feature-grid">
+        `;
+        
+        // Add features
+        page.features.forEach(feature => {
+          featuresHTML += `
+            <div class="card" data-aos="fade-up">
+              <i data-lucide="${feature.icon}" class="icon"></i>
+              <h4 class="text-lg font-semibold mb-2">${feature.title}</h4>
+              <p class="mb-4">${feature.description}</p>
+              ${feature.action ? 
+                `<button class="btn btn-default" onclick="${feature.action.onClick}">
+                  ${feature.action.label}
+                </button>` : ''}
+            </div>
+          `;
+        });
+        
+        featuresHTML += `</div>`;
+        
+        // Update content with animation
+        gsap.to(featureContent, { opacity: 0, y: -20, duration: 0.3, onComplete: () => {
+          featureContent.innerHTML = featuresHTML;
+          if (typeof lucide !== "undefined") {
+            lucide.createIcons();
+          }
+          // Reinitialize AOS for new elements
+          AOS.refresh();
+          gsap.fromTo(featureContent, 
+            { opacity: 0, y: 20 }, 
+            { opacity: 1, y: 0, duration: 0.5 }
+          );
+        }});
+        
+        // Update pagination dots
+        renderPaginationDots();
+      }
+      
+      function renderPaginationDots() {
+        paginationDots.innerHTML = '';
+        
+        featurePages.forEach((_, index) => {
+          const dot = document.createElement('div');
+          dot.className = `pagination-dot ${index === currentFeaturePage ? 'active' : ''}`;
+          dot.addEventListener('click', () => {
+            currentFeaturePage = index;
+            renderFeaturePage();
+          });
+          paginationDots.appendChild(dot);
+        });
+      }
+      
+      function setupFeaturePagination() {
+        prevFeatureBtn.addEventListener('click', () => {
+          currentFeaturePage = (currentFeaturePage - 1 + featurePages.length) % featurePages.length;
+          renderFeaturePage();
+        });
+        
+        nextFeatureBtn.addEventListener('click', () => {
+          currentFeaturePage = (currentFeaturePage + 1) % featurePages.length;
+          renderFeaturePage();
+        });
+      }
+      
+      // Render team members
+      function renderTeamMembers() {
+        const teamGrid = document.querySelector('.team-grid');
+        
+        teamMembers.forEach(member => {
+          const memberElement = document.createElement('div');
+          memberElement.className = 'team-member';
+          memberElement.setAttribute('data-aos', 'fade-up');
+          
+          // Create social links HTML
+          let socialLinksHTML = '';
+          if (member.social) {
+            socialLinksHTML = '<div class="social-links">';
+            if (member.social.linkedin) {
+              socialLinksHTML += `<a href="${member.social.linkedin}" class="social-link" target="_blank"><i data-lucide="linkedin"></i></a>`;
+            }
+            if (member.social.github) {
+              socialLinksHTML += `<a href="${member.social.github}" class="social-link" target="_blank"><i data-lucide="github"></i></a>`;
+            }
+            if (member.social.twitter) {
+              socialLinksHTML += `<a href="${member.social.twitter}" class="social-link" target="_blank"><i data-lucide="twitter"></i></a>`;
+            }
+            if (member.social.dribbble) {
+              socialLinksHTML += `<a href="${member.social.dribbble}" class="social-link" target="_blank"><i data-lucide="dribbble"></i></a>`;
+            }
+            socialLinksHTML += '</div>';
+          }
+          
+          memberElement.innerHTML = `
+            <img src="${member.avatar}" alt="${member.name}" />
+            <h4>${member.name}</h4>
+            <p class="role">${member.role}</p>
+            <p class="bio">${member.bio}</p>
+            ${socialLinksHTML}
+          `;
+          
+          teamGrid.appendChild(memberElement);
+        });
+        
+        // Initialize icons in the newly added elements
+        if (typeof lucide !== "undefined") {
+          lucide.createIcons();
+        }
+      }
+      
+      // Chatbot setup
+      function setupChatbot() {
+        // Toggle chatbot visibility
+        chatToggle.addEventListener('click', () => {
+          chatbot.style.display = chatbot.style.display === 'flex' ? 'none' : 'flex';
+          if (chatbot.style.display === 'flex') {
+            chatInput.focus();
+          }
+        });
+        
+        // Handle user input
+        chatInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter' && chatInput.value.trim() !== '') {
+            sendChatMessage();
+          }
+        });
+        
+        // Send button click
+        chatSend.addEventListener('click', () => {
+          if (chatInput.value.trim() !== '') {
+            sendChatMessage();
+          }
+        });
+        
+        // Add welcome message
+        appendMessage('bot', '👋 Hi there! How can I help you with PCAP analysis today? Type \'help\' for commands.');
+      }
+      
+      function sendChatMessage() {
+        const userMsg = chatInput.value.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        appendMessage('user', userMsg);
+        respondToUser(userMsg.toLowerCase());
+        chatInput.value = '';
+      }
+      
+      // Append message to chat
+      function appendMessage(sender, message) {
+        const msg = document.createElement('div');
+        msg.className = `chat-message ${sender}`;
+        
+        if (sender === 'bot') {
+          msg.innerHTML = message;
+        } else {
+          msg.textContent = message;
+        }
+        
+        chatBody.appendChild(msg);
+        chatBody.scrollTop = chatBody.scrollHeight;
+        
+        // Animate new message
+        gsap.from(msg, {
+          opacity: 0,
+          y: 10,
+          duration: 0.3
+        });
+      }
+      
+      // Chatbot responses
+      function respondToUser(input) {
+        let response = "🤔 I didn't get that. Type 'help' for commands.";
+
+        if (input.includes("help")) {
+          response = `🛠️ Available Commands:<br>
+            - Upload: How to upload PCAP<br>
+            - Report: Get a report<br>
+            - Threats: List detected threats<br>
+            - TCP: Show TCP packets<br>
+            - UDP: Show UDP packets<br>
+            - Top IPs: Show top source IPs<br>
+            - Save: How to save reports`;
+        } else if (input.includes("upload")) {
+          response = `📁 To upload a PCAP file, click on 'Choose File' and hit 'Analyze'. You need to be logged in to analyze files.`;
+        } else if (input.includes("report")) {
+          if (analysisData) {
+            response = `📄 Analysis Report:<br>
+              Total Packets: ${analysisData.totalPackets}<br>
+              Protocols: ${Object.keys(analysisData.protocolCounts).join(", ")}<br>
+              Threats Detected: ${analysisData.threats.length}`;
+          } else {
+            response = `📄 No analysis data available. Please upload and analyze a PCAP file first.`;
+          }
+        } else if (input.includes("threat")) {
+          if (analysisData && analysisData.threats.length > 0) {
+            response = `⚠️ Detected Threats:<br>${analysisData.threats
+              .map((t) => `- ${t.type}: ${t.description}`)
+              .join("<br>")}`;
+          } else {
+            response = `⚠️ No threats detected.`;
+          }
+        } else if (input.includes("tcp")) {
+          if (analysisData) {
+            const tcpPackets = analysisData.packetDetails.filter(
+              (p) => p.protocol.toLowerCase() === "tcp"
+            );
+            response = `🌐 TCP Packets:<br>${tcpPackets
+              .slice(0, 5)
+              .map((p) => `${p.srcIP} -> ${p.dstIP}`)
+              .join("<br>")}`;
+            if (tcpPackets.length > 5) response += "<br>...(showing first 5)";
+          } else {
+            response = `🌐 No analysis data available. Please upload and analyze a PCAP file first.`;
+          }
+        } else if (input.includes("udp")) {
+          if (analysisData) {
+            const udpPackets = analysisData.packetDetails.filter(
+              (p) => p.protocol.toLowerCase() === "udp"
+            );
+            response = `🌐 UDP Packets:<br>${udpPackets
+              .slice(0, 5)
+              .map((p) => `${p.srcIP} -> ${p.dstIP}`)
+              .join("<br>")}`;
+            if (udpPackets.length > 5) response += "<br>...(showing first 5)";
+          } else {
+            response = `🌐 No analysis data available. Please upload and analyze a PCAP file first.`;
+          }
+        } else if (input.includes("top ip")) {
+          if (analysisData) {
+            const ipCounts = {};
+            analysisData.packetDetails.forEach((p) => {
+              ipCounts[p.srcIP] = (ipCounts[p.srcIP] || 0) + 1;
+            });
+            const topIPs = Object.entries(ipCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5);
+            response = `🔝 Top Source IPs:<br>${topIPs
+              .map(([ip, count]) => `${ip}: ${count} packets`)
+              .join("<br>")}`;
+          } else {
+            response = `🔝 No analysis data available. Please upload and analyze a PCAP file first.`;
+          }
+        } else if (input.includes("export") || input.includes("download")) {
+          response = `📊 You can export the analysis report in different formats:
+            - PDF: Comprehensive report with charts and threat details
+            - JSON: Raw data for further processing
+            - CSV: Spreadsheet-friendly format for packet details
+            
+            Use the export buttons on the analysis result page.`;
+        } else if (input.includes("save")) {
+          response = `💾 After analyzing a PCAP file, you can save the report to your account by clicking the "Save Report" button. Your saved reports will be available in the "My Reports" section.`;
+        } else if (input.includes("login") || input.includes("sign")) {
+          response = `🔐 You can login or sign up by clicking the menu icon in the top right corner of the page. You need to be logged in to analyze PCAP files and save reports.`;
+        } else if (input.includes("hello") || input.includes("hi") || input.includes("hey")) {
+          response = `👋 Hello there! How can I assist you with PCAP analysis today?`;
+        } else if (input.includes("thank")) {
+          response = `😊 You're welcome! If you have any other questions, feel free to ask.`;
+        }
+
+        // Simulate Bot Typing with a typing indicator
+        const typingIndicator = document.createElement('div');
+        typingIndicator.className = 'chat-message bot';
+        typingIndicator.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+        chatBody.appendChild(typingIndicator);
+        
+        setTimeout(() => {
+          chatBody.removeChild(typingIndicator);
+          appendMessage("bot", response);
+        }, 1000);
+      }
+      
+      // Set up animations
+      function setupAnimations() {
+        // Animate About Us section elements
+        gsap.from('.about-title', {
+          scrollTrigger: {
+            trigger: '#about',
+            start: 'top 80%'
+          },
+          opacity: 0,
+          y: 30,
+          duration: 0.8
+        });
+        
+        // Add hover animations for navigation buttons
+        const navButtons = document.querySelectorAll('.nav-button');
+        navButtons.forEach(button => {
+          button.addEventListener('mouseenter', () => {
+            gsap.to(button, { scale: 1.05, duration: 0.2 });
+          });
+          button.addEventListener('mouseleave', () => {
+            gsap.to(button, { scale: 1, duration: 0.2 });
+          });
+        });
+      }
+      
+      // Setup feedback form
+      function setupFeedbackForm() {
+        feedbackForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          
+          const formData = new FormData(feedbackForm);
+          const feedbackData = {
+            name: formData.get('name'),
+            email: formData.get('email'),
+            message: formData.get('message')
+          };
+          
+          const submitBtn = feedbackForm.querySelector('button[type="submit"]');
+          submitBtn.innerHTML = '<div class="spinner"></div> Submitting...';
+          submitBtn.disabled = true;
+          feedbackError.classList.add('hidden');
+          feedbackSuccess.classList.add('hidden');
+          
+          try {
+            const response = await fetch(`${API_URL}/feedback`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(feedbackData)
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            feedbackSuccess.textContent = "Thank you for your feedback!";
+            feedbackSuccess.classList.remove('hidden');
+            feedbackForm.reset();
+          } catch (err) {
+            console.error('Error:', err);
+            feedbackError.textContent = err.message || "An error occurred while submitting feedback.";
+            feedbackError.classList.remove('hidden');
+          } finally {
+            submitBtn.textContent = "Submit Feedback";
+            submitBtn.disabled = false;
+          }
+        });
+      }
+      
+      // Load user reports
+      async function loadUserReports() {
+        try {
+          reportsLoading.classList.remove('hidden');
+          noReports.classList.add('hidden');
+          reportsList.innerHTML = '';
+          
+          const response = await fetch(`${API_URL}/reports/${USER_ID}`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const reports = await response.json();
+          renderReports(reports);
+        } catch (err) {
+          console.error('Error loading reports:', err);
+          reportsLoading.textContent = `Error loading reports: ${err.message}`;
+        }
+      }
+      
+      // Render reports
+      function renderReports(reports) {
+        reportsLoading.classList.add('hidden');
+        
+        if (!reports || reports.length === 0) {
+          noReports.classList.remove('hidden');
+          return;
+        }
+        
+        reportsList.innerHTML = '';
+        
+        reports.forEach(report => {
+          const reportDate = new Date(report.createdAt);
+          const formattedDate = reportDate.toLocaleDateString() + ' ' + reportDate.toLocaleTimeString();
+          
+          const reportElement = document.createElement('div');
+          reportElement.className = 'report-item';
+          reportElement.innerHTML = `
+            <div class="report-info">
+              <h4>${report.reportName} <span class="report-type">${report.reportType}</span></h4>
+              <p class="report-date">${formattedDate}</p>
+            </div>
+            <div class="report-actions">
+              <button class="btn btn-ghost" onclick="viewReport('${report._id}')">
+                <i data-lucide="eye"></i>
+              </button>
+              <button class="btn btn-ghost" onclick="downloadReport('${report._id}', '${report.reportType}')">
+                <i data-lucide="download"></i>
+              </button>
+              <button class="btn btn-ghost" onclick="deleteReport('${report._id}')">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
+          `;
+          
+          reportsList.appendChild(reportElement);
+        });
+        
+        // Initialize icons in the newly added elements
+        if (typeof lucide !== "undefined") {
+          lucide.createIcons();
+        }
+      }
+      
+      // Scroll to section helper function
+      window.scrollToSection = function(sectionId) {
+        const section = document.getElementById(sectionId);
+        if (section) {
+          // Add flash animation effect
+          gsap.to(section, { 
+            backgroundColor: body.classList.contains('dark') ? '#2563eb' : '#3b82f6', 
+            duration: 0.3,
+            onComplete: () => {
+              gsap.to(section, { 
+                backgroundColor: 'transparent', 
+                duration: 0.5 
+              });
+            }
+          });
+          
+          // Scroll to section
+          section.scrollIntoView({ behavior: 'smooth' });
+        }
+      };
+      
+      // Export functions
+      window.exportToPDF = function() {
+        if (!isLoggedIn) {
+          openLoginModal();
+          return;
+        }
+        
+        if (!analysisData) {
+          alert("No analysis data available. Please analyze a PCAP file first.");
+          return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.text("PCAP Analysis Report", 20, 20);
+        doc.text(`Total Packets: ${analysisData.totalPackets}`, 20, 30);
+
+        let yPos = 40;
+        doc.text("Protocol Distribution:", 20, yPos);
+        yPos += 10;
+        Object.entries(analysisData.protocolCounts).forEach(([protocol, count]) => {
+          doc.text(`${protocol}: ${count}`, 30, yPos);
+          yPos += 10;
+        });
+
+        yPos += 10;
+        doc.text("Threats Detected:", 20, yPos);
+        yPos += 10;
+        if (analysisData.threats.length > 0) {
+          analysisData.threats.forEach((threat) => {
+            doc.text(`${threat.type}: ${threat.description}`, 30, yPos);
+            yPos += 10;
+          });
+        } else {
+          doc.text("No threats detected", 30, yPos);
+        }
+
+        doc.save("pcap_analysis_report.pdf");
+      };
+
+      window.exportToJSON = function() {
+        if (!isLoggedIn) {
+          openLoginModal();
+          return;
+        }
+        
+        if (!analysisData) {
+          alert("No analysis data available. Please analyze a PCAP file first.");
+          return;
+        }
+
+        const dataStr = JSON.stringify(analysisData, null, 2);
+        const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
+        const exportFileDefaultName = "pcap_analysis_report.json";
+
+        const linkElement = document.createElement("a");
+        linkElement.setAttribute("href", dataUri);
+        linkElement.setAttribute("download", exportFileDefaultName);
+        linkElement.click();
+      };
+
+      window.exportToCSV = function() {
+        if (!isLoggedIn) {
+          openLoginModal();
+          return;
+        }
+        
+        if (!analysisData) {
+          alert("No analysis data available. Please analyze a PCAP file first.");
+          return;
+        }
+
+        const ws = XLSX.utils.json_to_sheet(analysisData.packetDetails);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Packets");
+        XLSX.writeFile(wb, "pcap_analysis_report.csv");
+      };
+      
+      // Save report to MongoDB
+      window.saveReport = async function() {
+        if (!isLoggedIn) {
+          openLoginModal();
+          return;
+        }
+        
+        if (!analysisData) {
+          alert("No analysis data available. Please analyze a PCAP file first.");
+          return;
+        }
+        
+        const reportName = prompt("Enter a name for this report:", "PCAP Analysis " + new Date().toLocaleString());
+        if (!reportName) return; // User cancelled
+        
+        const reportType = prompt("Select report type (PDF, JSON, CSV):", "JSON");
+        if (!reportType) return; // User cancelled
+        
+        try {
+          const response = await fetch(`${API_URL}/reports`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              userId: USER_ID,
+              reportName: reportName,
+              reportType: reportType.toUpperCase(),
+              data: analysisData
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const result = await response.json();
+          alert(`Report saved successfully! Report ID: ${result.reportId}`);
+          
+          // Refresh reports list
+          loadUserReports();
+          
+          // Scroll to reports section
+          scrollToSection('reports');
+        } catch (err) {
+          console.error('Error saving report:', err);
+          alert(`Error saving report: ${err.message}`);
+        }
+      };
+      
+      // View report
+      window.viewReport = async function(reportId) {
+        try {
+          const response = await fetch(`${API_URL}/reports/view/${reportId}`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const report = await response.json();
+          alert(`Viewing report: ${report.reportName}\n\nType: ${report.reportType}\nCreated: ${new Date(report.createdAt).toLocaleString()}`);
+          
+          // In a real app, you would display the report data in a modal or new page
+          console.log('Report data:', report.data);
+        } catch (err) {
+          console.error('Error viewing report:', err);
+          alert(`Error viewing report: ${err.message}`);
+        }
+      };
+      
+      // Download report
+      window.downloadReport = async function(reportId, reportType) {
+        try {
+          const response = await fetch(`${API_URL}/reports/view/${reportId}`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const report = await response.json();
+          
+          // Use the report data to generate the appropriate file
+          if (reportType === 'PDF') {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.text(`${report.reportName}`, 20, 20);
+            doc.text(`Generated: ${new Date(report.createdAt).toLocaleString()}`, 20, 30);
+            
+            // Add more report data as needed
+            doc.save(`${report.reportName}.pdf`);
+          } else if (reportType === 'JSON') {
+            const dataStr = JSON.stringify(report.data, null, 2);
+            const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
+            
+            const linkElement = document.createElement("a");
+            linkElement.setAttribute("href", dataUri);
+            linkElement.setAttribute("download", `${report.reportName}.json`);
+            linkElement.click();
+          } else if (reportType === 'CSV') {
+            const ws = XLSX.utils.json_to_sheet(report.data.packetDetails || []);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Packets");
+            XLSX.writeFile(wb, `${report.reportName}.csv`);
+          }
+        } catch (err) {
+          console.error('Error downloading report:', err);
+          alert(`Error downloading report: ${err.message}`);
+        }
+      };
+      
+      // Delete report
+      window.deleteReport = async function(reportId) {
+        if (!confirm("Are you sure you want to delete this report?")) {
+          return;
+        }
+        
+        try {
+          const response = await fetch(`${API_URL}/reports/${reportId}`, {
+            method: 'DELETE'
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          alert("Report deleted successfully!");
+          
+          // Refresh reports list
+          loadUserReports();
+        } catch (err) {
+          console.error('Error deleting report:', err);
+          alert(`Error deleting report: ${err.message}`);
+        }
+      };
+      
+      // Initialize the app
+      init();
+    })
+  </script>
+</body>
+</html>
+
